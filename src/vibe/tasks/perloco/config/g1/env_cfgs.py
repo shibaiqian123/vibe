@@ -104,15 +104,8 @@ def _vision(orcs_factory, *, play: bool, **orcs_kw) -> ManagerBasedRlEnvCfg:
 
 
 def g1_perloco_stairs_smpl_env_cfg(*, play=False):
-    """Human-clock release baseline, Dex1 assets supplied by the outer ORCS."""
-    from orcs.core.data.human_timeline import validate
-    from orcs.tasks.perloco.env_cfg import grail_stairs_smpl_env_cfg, staged_root
-    root = staged_root("grail_stairs")
-    samples = list(root.glob("*/level_*/sample*/metadata.json"))
-    if not samples:
-        raise FileNotFoundError(f"no human-clock data under {root}")
-    for p in samples:
-        validate(p.parent)
+    """Release SMPL baseline: preserve the outer ORCS data and seed behavior."""
+    from orcs.tasks.perloco.env_cfg import grail_stairs_smpl_env_cfg
     cfg = grail_stairs_smpl_env_cfg(play=play, sonic_version="release")
     before = domain_state(cfg)
     sensors.attach_head_cam(cfg)

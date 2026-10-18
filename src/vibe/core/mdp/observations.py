@@ -83,6 +83,7 @@ class image_feature(ManagerTermBase):
         if self._output == "cls" and not self._has_cls:
             raise ValueError(f"output='cls' needs a token model, got {self._model_name}")
         self._model = self._load(self._backend, self._model_name, dev, self._dtype)
+        self._model.requires_grad_(False)
         # DINO-only, read off the LIVE model rather than hardcoded per checkpoint:
         # CLS + N register tokens sit ahead of the patches, and DINOv3 resizes via
         # RoPE (no interpolate flag) where DINOv2 takes one. Both vary by checkpoint.
