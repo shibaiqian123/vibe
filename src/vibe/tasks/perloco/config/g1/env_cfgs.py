@@ -101,3 +101,25 @@ def _vision(orcs_factory, *, play: bool, **orcs_kw) -> ManagerBasedRlEnvCfg:
     # to match the other families.
     apply_stage_render(cfg, play=play, ground_rgba=TILE_FLOOR_RGBA)
     return cfg
+
+
+def g1_perloco_stairs_smpl_env_cfg(*, play=False):
+    """Human-clock release baseline, Dex1 assets supplied by the outer ORCS."""
+    from orcs.core.data.human_timeline import validate
+    from orcs.tasks.perloco.env_cfg import grail_stairs_smpl_env_cfg, staged_root
+    root = staged_root("grail_stairs")
+    samples = list(root.glob("*/level_*/sample*/metadata.json"))
+    if not samples:
+        raise FileNotFoundError(f"no human-clock data under {root}")
+    for p in samples:
+        validate(p.parent)
+    cfg = grail_stairs_smpl_env_cfg(play=play, sonic_version="release")
+    before = domain_state(cfg)
+    sensors.attach_head_cam(cfg)
+    oc.attach_ext_obs(cfg, ctx=oc.ObsCtx(p={"command_name": "motion"}, model_dtype="float32"))
+    apply_render_domain(cfg, play=play, terrain_ground_rgba=TILE_FLOOR_RGBA)
+    apply_query_noise(cfg, play=play)
+    if play:
+        assert_play_is_clean(cfg, before)
+    apply_stage_render(cfg, play=play, ground_rgba=TILE_FLOOR_RGBA)
+    return cfg

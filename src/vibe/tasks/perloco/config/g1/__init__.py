@@ -29,10 +29,14 @@ from functools import partial
 from orcs.core.registry import register_all
 
 from vibe.export.agent.case import register as register_export_case
-from vibe.tasks.perloco.config.g1.agent_cfgs import adapt_sonic_ext_agent_cfg
+from vibe.tasks.perloco.config.g1.agent_cfgs import (
+    adapt_sonic_ext_agent_cfg,
+    stairs_smpl_agent_cfg,
+)
 from vibe.tasks.perloco.config.g1.env_cfgs import (
     g1_perloco_grail_env_cfg,
     g1_perloco_omre_env_cfg,
+    g1_perloco_stairs_smpl_env_cfg,
 )
 from vibe.tasks.perloco.config.g1.export_case import policy_export_test
 
@@ -49,7 +53,11 @@ _TASKS = (
      partial(adapt_sonic_ext_agent_cfg, "vibe_perloco_grail")),
 )
 
-SKIP_REASON: dict[str, str] = register_all(_TASKS)
+
+SKIP_REASON: dict[str, str] = register_all((*_TASKS, (
+    "Vibe-PerLoco-GrailStairs-ImgFeat-Ext-Smpl",
+    g1_perloco_stairs_smpl_env_cfg, stairs_smpl_agent_cfg,
+)))
 """{task_id: why it could not register}. Empty when every task registered."""
 
 # The ONNX export test cases (export_case.py holds the episode + why it is that

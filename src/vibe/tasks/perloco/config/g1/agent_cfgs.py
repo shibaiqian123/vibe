@@ -37,3 +37,16 @@ def adapt_sonic_ext_agent_cfg(
     cfg = adapt_sonic_agent_cfg(experiment_name, rank=rank, alpha=alpha)
     attach_extractor(cfg, query_groups, extractor=extractor)
     return cfg
+
+
+def stairs_smpl_agent_cfg():
+    from orcs.core.sonic.runtime import agent_cfg
+    cfg = adapt_sonic_agent_cfg("vibe_perloco_grail_stairs_smpl")
+    cfg.actor.update(agent_cfg("release", "smpl", cfg.experiment_name).actor)
+    attach_extractor(cfg, observation_cfgs.DEFAULT_QUERY_GROUPS)
+    cfg.actor["class_name"] = "vibe.core.versioned_sonic.VersionedExtractorSonicAdapterModel"
+    cfg.actor["allow_legacy_resume"] = False
+    cfg.amp_dtype = None
+    cfg.save_interval = 100
+    cfg.logger = "tensorboard"
+    return cfg
