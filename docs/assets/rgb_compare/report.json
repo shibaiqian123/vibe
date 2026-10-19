@@ -1,0 +1,98 @@
+{
+  "normal_action_max_error": 0.0,
+  "checkpoint": "/home/cqu023/ViBe-SONIC/logs/rsl_rl/vibe_perloco_grail_stairs_smpl/2026-10-18_19-45-38_stairs_six_rgb_release_4096/model_9999.pt",
+  "modes": {
+    "normal": {
+      "clips": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "start_frames": [
+        0,
+        499,
+        998,
+        1497,
+        1996,
+        2495
+      ],
+      "sources": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "policy_step": 240007,
+      "version": 10
+    },
+    "gray": {
+      "clips": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "start_frames": [
+        0,
+        499,
+        998,
+        1497,
+        1996,
+        2495
+      ],
+      "sources": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "policy_step": 240015,
+      "version": 14
+    },
+    "shuffle": {
+      "clips": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "start_frames": [
+        0,
+        499,
+        998,
+        1497,
+        1996,
+        2495
+      ],
+      "sources": [
+        5,
+        0,
+        1,
+        4,
+        2,
+        3
+      ],
+      "policy_step": 240023,
+      "version": 18
+    }
+  },
+  "reset_joint_max_errors": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "actor_unchanged": true,
+  "theia_unchanged": true,
+  "status": "passed"
+}

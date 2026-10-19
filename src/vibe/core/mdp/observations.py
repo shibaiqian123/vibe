@@ -62,6 +62,8 @@ class image_feature(ManagerTermBase):
     def __init__(self, cfg, env):
         super().__init__(env)
         self._sensor_name = cfg.params["sensor_name"]
+        from vibe.core.rgb_compare import attach_play_control
+        attach_play_control(env, self._sensor_name)
         self._flatten = cfg.params.get("flatten", False)
         self._output = cfg.params.get("output", "tokens")
         self._model_name = cfg.params.get("model_name", "theia-tiny-patch16-224-cddsv")
@@ -105,6 +107,9 @@ class image_feature(ManagerTermBase):
         path, where the step counter would have missed anyway.
         """
         image_feature._FWD.pop(self._ckey, None)
+        control = getattr(self._env, "_rgb_compare", None)
+        if control is not None:
+            control.invalidate()
 
     @staticmethod
     def _detect_backend(model_name: str) -> str:
@@ -183,15 +188,19 @@ class image_feature(ManagerTermBase):
         rgb = env.scene[self._sensor_name].data.rgb  # (B, H, W, 3) uint8
         # (step, buffer ptr) so sibling terms sharing a sensor encode once. Neither
         # moves across a reset — `reset()` above is what invalidates that case.
+        control = getattr(env, "_rgb_compare", None)
+        version = control.cache_token(env) if control is not None else None
         step = int(env.common_step_counter)
         ptr = rgb.data_ptr()
         hit = image_feature._FWD.get(self._ckey)
-        if hit is not None and hit[0] == step and hit[1] == ptr:
+        if hit is not None and hit[0] == step and hit[1] == ptr and hit[3] == version:
             return hit[2]
+        if control is not None:
+            rgb = control.apply(rgb, env, self._sensor_name)
         x = rgb.to(self._dev).permute(0, 3, 1, 2).to(self._dtype) / 255.0
         x = (x - self._mean) / self._std
         out = self._encode(x)  # backend-bound at init
-        image_feature._FWD[self._ckey] = (step, ptr, out)
+        image_feature._FWD[self._ckey] = (step, ptr, out, version)
         return out
 
     @torch.no_grad()

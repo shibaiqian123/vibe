@@ -354,10 +354,12 @@ def _patch_play_init_agent() -> None:
     _agents = get_args(get_type_hints(_OrigPlayConfig)["agent"])
     _agents = tuple(dict.fromkeys(("auto", *_agents, "initial", "release")))
     PlayConfig = make_dataclass(
-        "PlayConfig", [("agent", Literal[_agents], field(default="auto"))],
+        "PlayConfig", [("agent", Literal[_agents], field(default="auto")),
+                       ("rgb_mode", Literal["normal", "gray", "shuffle"], field(default="normal")),
+                       ("rgb_seed", int, field(default=0))],
         bases=(_OrigPlayConfig,), frozen=True)
 
-    def run_play(task_id: str, cfg):
+    def _run_play(task_id: str, cfg):
         from vibe import release
 
         requested = cfg.agent
@@ -416,6 +418,22 @@ def _patch_play_init_agent() -> None:
         else:
             raise RuntimeError(f"Unsupported viewer backend: {resolved_viewer}")
         env.close()
+
+    def run_play(task_id: str, cfg):
+        from vibe.core.rgb_compare import rgb_play_request
+        from vibe.core.mdp.observations import image_feature
+        if cfg.rgb_mode != "normal":
+            env_cfg = play.load_env_cfg(task_id, play=True)
+            terms = [t for group in env_cfg.observations.values()
+                     for t in group.terms.values() if t.func is image_feature]
+            if not terms:
+                raise ValueError("RGB comparison requires an image_feature observation")
+            if cfg.viewer == "native":
+                raise ValueError("RGB comparison currently requires --viewer viser")
+            cfg = dataclasses.replace(cfg, viewer="viser")
+        checkpoint = str(cfg.checkpoint_file or cfg.wandb_run_path or cfg.registry_name or cfg.agent)
+        with rgb_play_request(cfg.rgb_mode, cfg.rgb_seed, checkpoint):
+            return _run_play(task_id, cfg)
 
     play.PlayConfig = PlayConfig
     play.run_play = run_play

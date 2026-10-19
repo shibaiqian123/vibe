@@ -43,8 +43,9 @@ class AttnCameraPanel:
 
     def __init__(
         self, server: viser.ViserServer, sensor, extractor, display_scale: int = 3,
-        order: float | None = None,
+        order: float | None = None, control=None,
     ) -> None:
+        self._control = control
         self._server = server
         self._sensor = sensor
         self._tap = extractor
@@ -55,6 +56,7 @@ class AttnCameraPanel:
         # row labels come straight from the extractor's query layout (query groups + learned)
         self._labels = list(getattr(extractor, "query_labels", None) or [f"q{i}" for i in range(q)])
         self._last_env_idx = -1
+        self._last_version = -1
         self._hist: dict[str, deque[float]] = {lbl: deque(maxlen=_HISTORY) for lbl in self._labels}
         self._x = np.arange(-_HISTORY + 1, 1, dtype=np.float64)
 
@@ -99,7 +101,8 @@ class AttnCameraPanel:
     def overlay_frame(self, env_idx: int) -> np.ndarray | None:
         """The selected query's overlay at NATIVE camera resolution, for the recorder."""
         attn_t = getattr(self._tap, "last_attn", None)
-        rgb = self._sensor.data.rgb
+        rgb = (self._control.policy_frame.used if self._control is not None and self._control.matched()
+               else self._sensor.data.rgb if self._control is None else None)
         if attn_t is None or rgb is None or env_idx >= attn_t.shape[0]:
             return None
         attn = attn_t[env_idx].float().cpu().numpy()
@@ -112,13 +115,16 @@ class AttnCameraPanel:
     def update(self, extractor, env_idx: int) -> None:
         self._tap = extractor  # kept so `overlay_frame` can paint between GUI ticks
         attn_t = getattr(extractor, "last_attn", None)
-        rgb = self._sensor.data.rgb
+        rgb = (self._control.policy_frame.used if self._control is not None and self._control.matched()
+               else self._sensor.data.rgb if self._control is None else None)
         if attn_t is None or rgb is None or env_idx >= attn_t.shape[0]:
             return
-        if env_idx != self._last_env_idx:  # env switch → drop stale traces
+        version = self._control.version if self._control is not None else 0
+        if env_idx != self._last_env_idx or version != self._last_version:  # env switch → drop stale traces
             for h in self._hist.values():
                 h.clear()
             self._last_env_idx = env_idx
+            self._last_version = version
         attn = attn_t[env_idx].float().cpu().numpy()  # (Q, P)
         rgb_np = rgb[env_idx].cpu().numpy()  # (H, W, 3) uint8
         q, p = attn.shape
@@ -189,8 +195,66 @@ class AttnViserPlayViewer(ViserPlayViewer):
             meta_fn=lambda: {"attn_query": self._attn_panel.query if self._attn_panel else None},
             paused_fn=lambda: self._is_paused,
         )
+        self._setup_rgb_compare()
         if os.environ.get("VIBE_PAUSED") or os.environ.get("VIBE_REC"):  # VIBE_REC: old name
             self.pause()  # set the shot before a single step is taken
+
+    def _setup_rgb_compare(self):
+        from functools import wraps
+        from vibe.viz.rgb_panel import RgbComparePanel
+        self._rgb_control = getattr(self.env.unwrapped, "_rgb_compare", None)
+        self._rgb_panel = None
+        c = self._rgb_control
+        if c is None:
+            return
+        if self._attn_sensor is None or self._attn_sensor.cfg.name not in c.sensors:
+            if c.requested_mode != "normal":
+                raise ValueError("RGB comparison needs the policy head camera")
+            return
+        policy = self.policy
+
+        @wraps(policy)
+        def capture(obs):
+            from rsl_rl.modules import cross_attention
+            frame = c.inputs.get(self._attn_sensor.cfg.name)
+            result = policy(obs)
+            tap = cross_attention.LATEST_ATTENTION
+            c.capture_policy(frame, getattr(tap, "last_attn", None))
+            return result
+
+        self.policy = capture
+        self._rgb_panel = RgbComparePanel(self, c)
+        c.configure(c.requested_mode, self.env.unwrapped)
+        self._rgb_panel.mode.value = c.mode
+        self.reset_environment()
+
+    def reset_environment(self):
+        c = getattr(self, "_rgb_control", None)
+        if c is not None:
+            self.env.unwrapped.seed(c.seed)
+            c.invalidate()
+        super().reset_environment()
+        if getattr(self, "_rgb_panel", None) is not None:
+            self._rgb_panel.update(self._scene.env_idx)
+        self._hide_stale_attention()
+
+    def _hide_stale_attention(self):
+        panel = getattr(self, "_attn_panel", None)
+        if panel is not None:
+            panel._overlay_h.visible = panel._montage_h.visible = False
+            panel._plot.visible = False
+            panel._montage_caption.content = "等待更新：尚无当前模式对应的策略前向。"
+
+    def _handle_custom_action(self, action, payload):
+        if isinstance(payload, tuple) and len(payload) == 2 and payload[0] == "rgb_compare":
+            try:
+                self._rgb_control.configure(payload[1], self.env.unwrapped)
+                self.reset_environment()
+            except ValueError as exc:
+                self.pause()
+                self._rgb_panel.status.content = f"无法应用：{exc}"
+            return True
+        return super()._handle_custom_action(action, payload)
 
     # Frame taps for the recorder: whatever the panels are showing, as numpy.
 
@@ -219,14 +283,26 @@ class AttnViserPlayViewer(ViserPlayViewer):
         ):
             return
         from rsl_rl.modules import cross_attention
+        from types import SimpleNamespace
 
+        c = getattr(self, "_rgb_control", None)
+        if self._rgb_panel is not None:
+            self._rgb_panel.update(self._scene.env_idx)
         tap = cross_attention.LATEST_ATTENTION
+        if c is not None:
+            if not c.matched():
+                self._hide_stale_attention()
+                return
+            tap = SimpleNamespace(last_attn=c.policy_attention,
+                                  query_labels=getattr(tap, "query_labels", None))
         if tap is None or tap.last_attn is None:
             return
         if self._attn_panel is None:
             tab, order = self._above_info()
             with tab:
-                self._attn_panel = AttnCameraPanel(self._server, self._attn_sensor, tap, order=order)
+                self._attn_panel = AttnCameraPanel(self._server, self._attn_sensor, tap, order=order, control=c)
+        self._attn_panel._overlay_h.visible = self._attn_panel._montage_h.visible = True
+        self._attn_panel._plot.visible = True
         self._attn_panel.update(tap, self._scene.env_idx)
 
     def _above_info(self):
