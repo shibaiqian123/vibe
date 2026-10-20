@@ -61,6 +61,10 @@ _NUM_ENVS = 2
 class ExportConfig:
     """CLI for the ONNX exporter (checkpoint resolution mirrors `play`)."""
 
+    export_family: str | None = None
+    """Optional PerLoco terrain family to check; changes only the export test episode."""
+    split_sonic: bool = False
+    """Export post-FSQ motion encoder and visual decoder as a paired bundle."""
     release: bool = False
     """Export the released checkpoint (`play --agent release`'s), fetched on first use."""
     wandb_run_path: str | None = None
@@ -192,6 +196,8 @@ def run_export(task_id: str, cfg: ExportConfig) -> None:
     agent_cfg = load_rl_cfg(task_id)
     env_cfg.scene.num_envs = _NUM_ENVS  # world 0 = checkpoint, world 1 = exported ONNX
     clips = export_case.apply(env_cfg, case)
+    if cfg.export_family is not None:
+        export_case.pin_terrain_family(env_cfg, cfg.export_family)
     pinned = ", ".join(clips) if len(clips) <= 2 else f"{len(clips)} clips (one per bucket)"
     print(f"[export] case: seed {seed}, {steps} steps, "
           f"episode {pinned or 'unpinned (dataset already deterministic)'}")
@@ -228,6 +234,16 @@ def run_export(task_id: str, cfg: ExportConfig) -> None:
             onnx_model.alias_ports(aliases)
             merged = ", ".join(f"{a} -> {c}" for a, c in aliases.items())
             print(f"[export] deduped identical groups: {merged}")
+
+    if cfg.split_sonic:
+        from vibe.export.agent.split_sonic import run_split_export
+        manifest = build_manifest(
+            env.unwrapped, onnx_model, task_id=task_id,
+            run_path=cfg.wandb_run_path or str(checkpoint), checkpoint=str(checkpoint),
+            model_class=type(model).__name__,
+        )
+        run_split_export(model, onnx_model, manifest, out_dir, env, cfg, steps, min_steps)
+        return
 
     onnx_path = out_dir / f"{stem}.onnx"
     torch.onnx.export(

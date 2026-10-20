@@ -103,3 +103,18 @@ def apply(env_cfg: ManagerBasedRlEnvCfg, case: ExportCase) -> tuple[str, ...]:
             f"{killed} — the task killed those for a reason; pin another.")
     cmd.exclude_motions = tuple(sorted(every - set(case.clips)))
     return tuple(sorted(case.clips))
+
+
+def pin_terrain_family(env_cfg, family: str) -> None:
+    """Narrow grid AND command keys together; never leave empty terrain buckets."""
+    terrain = env_cfg.scene.terrain.terrain_generator
+    command = env_cfg.commands["motion"]
+    if family not in terrain.sub_terrains:
+        raise ValueError(f"Unknown export terrain family {family!r}")
+    keys = tuple(k for k in command.tile_keys if k.split("/")[0] == family)
+    if not keys or len(keys) != command.n_rows:
+        raise ValueError("Export family must cover every terrain level")
+    terrain.sub_terrains = {family: terrain.sub_terrains[family]}
+    terrain.num_cols = 1
+    command.tile_keys = keys
+    command.clips = {k: v for k, v in command.clips.items() if k in keys}

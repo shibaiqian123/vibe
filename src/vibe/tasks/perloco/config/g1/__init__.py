@@ -64,3 +64,5 @@ SKIP_REASON: dict[str, str] = register_all((*_TASKS, (
 # one). Declared unconditionally — they are data, and read no dataset.
 for _task_id, *_ in _TASKS:
     register_export_case(policy_export_test(_task_id))
+
+register_export_case(policy_export_test("Vibe-PerLoco-GrailStairs-ImgFeat-Ext-Smpl"))
