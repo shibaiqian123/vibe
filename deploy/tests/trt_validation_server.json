@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "action_tolerance": 1e-05,
+  "precision": "FP32; TF32 disabled",
+  "cases": [
+    {
+      "mode": "normal",
+      "latent_exact": true,
+      "latent_max_abs": 0.0,
+      "action_max_abs": 6.556510925292969e-07,
+      "passed": true
+    },
+    {
+      "mode": "gray",
+      "latent_exact": true,
+      "latent_max_abs": 0.0,
+      "action_max_abs": 7.152557373046875e-07,
+      "passed": true
+    }
+  ],
+  "model_sha256": {
+    "motion_encoder": "a01b22a9940c51cd96ae5897869238baa5632ea5e94dd0788123a1751afa575e",
+    "visual_decoder": "3c51ec6178114f01c300365cf5d1a5f9d967fb1f8398ee726ebde9e81632a6a2",
+    "theia": "d9691149c4169d9cbb17f9fee46aa60b528cef93b94a7e88422cecd18a415914"
+  },
+  "library_sha256": "ca2e11f77c0be78fd7912f4d8c366ffeec760692c1585614facbe77c7e4e23ac",
+  "vision_adaptation": {
+    "status": "passed",
+    "source_sha256": "d9691149c4169d9cbb17f9fee46aa60b528cef93b94a7e88422cecd18a415914",
+    "derived_sha256": "efca222984bee97da3d5aad5800e5001a6802fa3b2f53b2bec5ef83653439375",
+    "feature_max_abs": [
+      0.0,
+      0.0
+    ],
+    "change": "input UINT8 to FLOAT only; same integer-valued 0..255 pixels, BGR, preprocessing and weights"
+  }
+}

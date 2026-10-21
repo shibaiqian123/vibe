@@ -1,0 +1,17 @@
+{
+  "status": "integration_pending",
+  "simulation_only": true,
+  "network_interface": "lo",
+  "dds_domain": 86,
+  "manager_endpoint": "tcp://127.0.0.1:15556",
+  "rgb_endpoint": "tcp://127.0.0.1:15558",
+  "physics_dt": 0.005,
+  "control_decimation": 4,
+  "camera": {"width": 112, "height": 63, "fovy": 42.5, "pose_source": "validated case.json; do not substitute real URDF pose"},
+  "inputs": {
+    "recorded_smpl": "pending three-process control integration",
+    "keyboard": "original handler extracted; planner/encoder compatibility unverified",
+    "vr_smpl": "wire fields identified; live time window and query compatibility unverified",
+    "vr3pt": "requires original matching encoder branch; not the 840D SMPL encoder"
+  }
+}
